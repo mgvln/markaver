@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  logo          String?
+  slackBotToken String?
+  slackChannel  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  users         OrgUser[]
+  products      Product[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  password     String?
+  isSuperAdmin Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  orgs         OrgUser[]
+}
+
+model OrgUser {
+  id        String       @id @default(cuid())
+  role      Role         @default(VIEWER)
+  createdAt DateTime     @default(now())
+  org       Organization @relation(fields: [orgId], references: [id])
+  orgId     String
+  user      User         @relation(fields: [userId], references: [id])
+  userId    String
+
+  @@unique([orgId, userId])
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  ANALYST
+  VIEWER
+}
+
+model Product {
+  id              String                 @id @default(cuid())
+  name            String
+  sku             String?
+  costPrice       Float
+  minMarkup       Float                  @default(4.0)
+  positionRule    String                 @default("mean")
+  adjustment      Float                  @default(20.0)
+  scrapeInterval  String                 @default("weekly")
+  currency        String                 @default("EUR")
+  servingsPerPack Int                    @default(30)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  org             Organization           @relation(fields: [orgId], references: [id])
+  orgId           String
+  competitors     Competitor[]
+  snapshots       PriceSnapshot[]
+  recommendations PricingRecommendation[]
+  triggers        Trigger[]
+}
+
+model Competitor {
+  id        String          @id @default(cuid())
+  name      String
+  url       String
+  source    String?
+  type      String          @default("direct")
+  createdAt DateTime        @default(now())
+  product   Product         @relation(fields: [productId], references: [id])
+  productId String
+  snapshots PriceSnapshot[]
+}
+
+model PriceSnapshot {
+  id              String     @id @default(cuid())
+  price           Float
+  currency        String
+  pricePerServing Float?
+  pricePer30Days  Float?
+  inStock         Boolean    @default(true)
+  isOutlier       Boolean    @default(false)
+  scrapedAt       DateTime   @default(now())
+  product         Product    @relation(fields: [productId], references: [id])
+  productId       String
+  competitor      Competitor @relation(fields: [competitorId], references: [id])
+  competitorId    String
+}
+
+model PricingRecommendation {
+  id            String   @id @default(cuid())
+  ampMean       Float
+  ampMedian     Float
+  ampTrimmed    Float
+  srp           Float
+  srpPerServing Float
+  markupRatio   Float
+  marginPct     Float
+  createdAt     DateTime @default(now())
+  product       Product  @relation(fields: [productId], references: [id])
+  productId     String
+}
+
+model Trigger {
+  id           String    @id @default(cuid())
+  name         String
+  condition    String
+  threshold    Float?
+  action       String
+  actionConfig Json      @default("{}")
+  isActive     Boolean   @default(true)
+  lastFiredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId    String
+}
