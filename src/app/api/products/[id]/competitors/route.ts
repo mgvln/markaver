@@ -19,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  const { name, url, source, type } = await request.json()
+  const { name, url, source, type, servings, claim, ingredients } = await request.json()
   if (!name || !url) {
     return NextResponse.json({ error: "Name and URL are required" }, { status: 400 })
   }
@@ -30,6 +30,9 @@ export async function POST(
       url,
       source: source ?? null,
       type: type ?? "direct",
+      servings: servings ?? null,
+      claim: claim ?? null,
+      ingredients: ingredients ?? null,
       productId: id,
     },
   })

@@ -2,6 +2,52 @@ import { prisma } from "@/lib/prisma"
 import { sendAlertEmail } from "@/lib/email"
 import { sendWebhook } from "@/lib/webhook"
 
+export async function sendCycleReport(productId: string, scraped: number): Promise<void> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: {
+      org: {
+        include: {
+          users: {
+            where: { role: { in: ["OWNER", "MANAGER"] } },
+            include: { user: { select: { email: true } } },
+          },
+        },
+      },
+      recommendations: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  })
+
+  if (!product) return
+  const rec = product.recommendations[0]
+  if (!rec) return
+
+  const sym = { EUR: "€", GBP: "£", USD: "$" }[product.currency] ?? "€"
+  const message = `Scrape cycle complete — ${scraped} price${scraped !== 1 ? "s" : ""} updated.`
+
+  if (product.org.slackBotToken && product.org.slackChannel) {
+    await sendSlackMessage(
+      product.org.slackBotToken,
+      product.org.slackChannel,
+      `*${product.name}* — ${message}\nSRP: ${sym}${rec.srp.toFixed(2)} · AMP: ${sym}${rec.ampTrimmed.toFixed(2)} · Markup: ${rec.markupRatio.toFixed(2)}×`
+    )
+  }
+
+  const emails = product.org.users.map((u) => u.user.email)
+  await Promise.allSettled(
+    emails.map((email) =>
+      sendAlertEmail({
+        to: email,
+        productName: product.name,
+        message,
+        srp: `${sym}${rec.srp.toFixed(2)}`,
+        amp: `${sym}${rec.ampTrimmed.toFixed(2)}`,
+        markup: rec.markupRatio.toFixed(2),
+      })
+    )
+  )
+}
+
 function resolveVars(
   template: string,
   vars: Record<string, string>

@@ -41,3 +41,24 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Local deploy scripts (contain VPS credentials)
+redeploy.py
+run_migration.py
+push.py
+push_env.py
+deploy.py
+server_setup.py
+server_check.py
+fix_final.py
+check_db.js
+check_template.js
+fix_competitors.js
+scrape_all.js
+scrape_all.ts
+deploy.log
+deploy_err.log
+lighthouse-report*.json
+
+# Claude Code local settings
+.claude/settings.local.json

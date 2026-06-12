@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Sidebar from "@/components/Sidebar"
+import ProductRowActions from "./ProductRowActions"
 
 const CURRENCY_SYMBOL: Record<string, string> = { EUR: "€", GBP: "£", USD: "$" }
 
@@ -31,8 +32,8 @@ export default async function ProductsPage() {
     <div className="flex h-screen bg-[#f9faf8]">
       <Sidebar active="products" />
 
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
+      <div className="flex-1 overflow-auto pt-14 md:pt-0">
+        <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-4">
           <p className="text-xs text-gray-400 mb-1">Management</p>
           <div className="flex justify-between items-center">
             <h2 className="text-[#00343A] font-semibold text-xl">Products</h2>
@@ -45,10 +46,10 @@ export default async function ProductsPage() {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {products.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-              <p className="text-gray-600 font-medium mb-2">No products yet</p>
+              <p className="text-gray-900 font-medium mb-2">No products yet</p>
               <p className="text-gray-400 text-sm mb-6">
                 Start tracking competitor prices by adding your first product.
               </p>
@@ -61,10 +62,11 @@ export default async function ProductsPage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <h3 className="text-sm font-semibold text-[#00343A]">All Products</h3>
                 <span className="text-xs text-gray-400">{products.length} product{products.length !== 1 ? "s" : ""}</span>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-[#f9faf8] border-b border-gray-200">
@@ -92,6 +94,7 @@ export default async function ProductsPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
                       Status
                     </th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -111,17 +114,17 @@ export default async function ProductsPage() {
                           </Link>
                           <p className="text-xs text-gray-400">{p.sku || `${p.servingsPerPack} servings`}</p>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600">{p.currency}</td>
-                        <td className="px-4 py-4 text-sm text-right text-gray-500">
+                        <td className="px-4 py-4 text-sm text-gray-900">{p.currency}</td>
+                        <td className="px-4 py-4 text-sm text-right text-gray-900">
                           {p._count.competitors}
                         </td>
-                        <td className="px-4 py-4 text-sm text-right font-mono text-gray-600">
+                        <td className="px-4 py-4 text-sm text-right font-mono text-gray-900">
                           {rec ? `${sym}${rec.ampTrimmed.toFixed(2)}` : "—"}
                         </td>
                         <td className="px-4 py-4 text-sm text-right font-mono font-semibold text-[#047857]">
                           {rec ? `${sym}${rec.srp.toFixed(2)}` : "—"}
                         </td>
-                        <td className="px-4 py-4 text-sm text-right font-mono text-gray-600">
+                        <td className="px-4 py-4 text-sm text-right font-mono text-gray-900">
                           {rec
                             ? `${rec.markupRatio.toFixed(2)}×`
                             : `${p.minMarkup.toFixed(1)}× (min)`}
@@ -140,11 +143,15 @@ export default async function ProductsPage() {
                             {hasCompetitors ? "Active" : "Pending"}
                           </span>
                         </td>
+                        <td className="px-4 py-4">
+                          <ProductRowActions productId={p.id} productName={p.name} />
+                        </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

@@ -121,7 +121,7 @@ export default function SignupPage() {
                 minLength={8}
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#33A579]"
               />
-              <p className="text-xs text-gray-400 mt-1">Minimum 8 characters</p>
+              <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
             </div>
 
             <button
@@ -134,7 +134,7 @@ export default function SignupPage() {
 
             <p className="text-center text-sm text-gray-500">
               Already have an account?{" "}
-              <a href="/login" className="text-[#33A579] font-medium hover:underline">
+              <a href="/login" className="text-emerald-700 font-medium hover:underline">
                 Sign in
               </a>
             </p>

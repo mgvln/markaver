@@ -1,10 +1,16 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+import Google from "next-auth/providers/google"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -31,14 +37,56 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        const orgUser = await prisma.orgUser.findFirst({
-          where: { userId: user.id as string },
-          orderBy: { createdAt: "asc" },
+    async signIn({ account, profile }) {
+      if (account?.provider === "google" && profile?.email) {
+        const existing = await prisma.user.findUnique({
+          where: { email: profile.email },
         })
-        token.orgId = orgUser?.orgId ?? ""
+        if (!existing) {
+          await prisma.user.create({
+            data: {
+              email: profile.email,
+              name: (profile as { name?: string }).name ?? profile.email.split("@")[0],
+            },
+          })
+        }
       }
+      return true
+    },
+    async jwt({ token, user, account, trigger, session }) {
+      // Session update trigger (e.g. after org setup)
+      if (trigger === "update" && (session as { orgId?: string })?.orgId) {
+        token.orgId = (session as { orgId: string }).orgId
+        return token
+      }
+
+      if (account?.provider === "credentials" && user) {
+        const [orgUser, dbUser] = await Promise.all([
+          prisma.orgUser.findFirst({
+            where: { userId: user.id as string },
+            orderBy: { createdAt: "asc" },
+          }),
+          prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { isSuperAdmin: true },
+          }),
+        ])
+        token.orgId = orgUser?.orgId ?? ""
+        token.isSuperAdmin = dbUser?.isSuperAdmin ?? false
+      }
+
+      if (account?.provider === "google" && token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          include: { orgs: { orderBy: { createdAt: "asc" }, take: 1 } },
+        })
+        if (dbUser) {
+          token.sub = dbUser.id
+          token.orgId = dbUser.orgs[0]?.orgId ?? ""
+          token.isSuperAdmin = dbUser.isSuperAdmin
+        }
+      }
+
       return token
     },
     async session({ session, token }) {

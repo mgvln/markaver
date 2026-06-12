@@ -18,6 +18,7 @@ model Organization {
   updatedAt     DateTime  @updatedAt
   users         OrgUser[]
   products      Product[]
+  apiKeys       ApiKey[]
 }
 
 model User {
@@ -51,36 +52,46 @@ enum Role {
 }
 
 model Product {
-  id              String                 @id @default(cuid())
-  name            String
-  sku             String?
-  costPrice       Float
-  minMarkup       Float                  @default(4.0)
-  positionRule    String                 @default("mean")
-  adjustment      Float                  @default(20.0)
-  scrapeInterval  String                 @default("weekly")
-  currency        String                 @default("EUR")
-  servingsPerPack Int                    @default(30)
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  id                 String                 @id @default(cuid())
+  name               String
+  sku                String?
+  productType        String                 @default("capsule")
+  costPrice          Float
+  minMarkup          Float                  @default(5.0)
+  positionRule       String                 @default("mean")
+  adjustment         Float                  @default(20.0)
+  scrapeInterval     String                 @default("weekly")
+  currency           String                 @default("EUR")
+  servingsPerPack    Int                    @default(30)
+  capsulesPerServing Int                    @default(2)
+  capsuleSizeGrams   Float?
+  gramsPerServing    Float?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
   org             Organization           @relation(fields: [orgId], references: [id])
   orgId           String
   competitors     Competitor[]
   snapshots       PriceSnapshot[]
   recommendations PricingRecommendation[]
   triggers        Trigger[]
+  wholesaleTiers  WholesaleTier[]
 }
 
 model Competitor {
-  id        String          @id @default(cuid())
-  name      String
-  url       String
-  source    String?
-  type      String          @default("direct")
-  createdAt DateTime        @default(now())
-  product   Product         @relation(fields: [productId], references: [id])
-  productId String
-  snapshots PriceSnapshot[]
+  id              String          @id @default(cuid())
+  name            String
+  url             String
+  source          String?
+  type            String          @default("direct")
+  claim           String?
+  ingredients     String?
+  servings        Int?
+  scrapeFailCount Int             @default(0)
+  manualPrice     Float?
+  createdAt       DateTime        @default(now())
+  product         Product         @relation(fields: [productId], references: [id])
+  productId       String
+  snapshots       PriceSnapshot[]
 }
 
 model PriceSnapshot {
@@ -89,6 +100,7 @@ model PriceSnapshot {
   currency        String
   pricePerServing Float?
   pricePer30Days  Float?
+  pricePerKg      Float?
   inStock         Boolean    @default(true)
   isOutlier       Boolean    @default(false)
   scrapedAt       DateTime   @default(now())
@@ -99,17 +111,20 @@ model PriceSnapshot {
 }
 
 model PricingRecommendation {
-  id            String   @id @default(cuid())
-  ampMean       Float
-  ampMedian     Float
-  ampTrimmed    Float
-  srp           Float
-  srpPerServing Float
-  markupRatio   Float
-  marginPct     Float
-  createdAt     DateTime @default(now())
-  product       Product  @relation(fields: [productId], references: [id])
-  productId     String
+  id              String   @id @default(cuid())
+  ampMean         Float
+  ampMedian       Float
+  ampTrimmed      Float
+  ampMeanPerKg    Float?
+  ampMedianPerKg  Float?
+  ampTrimmedPerKg Float?
+  srp             Float
+  srpPerServing   Float
+  markupRatio     Float
+  marginPct       Float
+  createdAt       DateTime @default(now())
+  product         Product  @relation(fields: [productId], references: [id])
+  productId       String
 }
 
 model Trigger {
@@ -125,4 +140,36 @@ model Trigger {
   updatedAt    DateTime  @updatedAt
   product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId    String
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model WholesaleTier {
+  id        String   @id @default(cuid())
+  name      String
+  minQty    Int
+  maxQty    Int?
+  discount  Float    @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+}
+
+model ApiKey {
+  id         String       @id @default(cuid())
+  name       String
+  keyHash    String       @unique
+  keyPrefix  String
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lastUsedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([orgId])
 }

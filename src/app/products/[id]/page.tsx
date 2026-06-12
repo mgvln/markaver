@@ -1,6 +1,7 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect, notFound } from "next/navigation"
+import Link from "next/link"
 import Sidebar from "@/components/Sidebar"
 import AddCompetitorModal from "./AddCompetitorModal"
 import RunNowButton from "./RunNowButton"
@@ -74,11 +75,17 @@ export default async function ProductDetailPage({
       url: c.url,
       source: c.source,
       type: c.type,
+      claim: c.claim,
+      ingredients: c.ingredients,
+      servings: c.servings,
+      scrapeFailCount: c.scrapeFailCount,
+      manualPrice: c.manualPrice,
       snap: snap
         ? {
             price: snap.price,
             pricePerServing: snap.pricePerServing,
             pricePer30Days: snap.pricePer30Days,
+            pricePerKg: snap.pricePerKg,
             inStock: snap.inStock,
             isOutlier: snap.isOutlier,
           }
@@ -92,9 +99,13 @@ export default async function ProductDetailPage({
         ampMean: rec.ampMean,
         ampMedian: rec.ampMedian,
         ampTrimmed: rec.ampTrimmed,
+        ampMeanPerKg: rec.ampMeanPerKg ?? null,
+        ampMedianPerKg: rec.ampMedianPerKg ?? null,
+        ampTrimmedPerKg: rec.ampTrimmedPerKg ?? null,
         srp: rec.srp,
         srpPerServing: rec.srpPerServing,
         markupRatio: rec.markupRatio,
+        marginPct: rec.marginPct,
       }
     : null
 
@@ -132,11 +143,11 @@ export default async function ProductDetailPage({
     <div className="flex h-screen bg-[#f9faf8]">
       <Sidebar active="products" />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pt-14 md:pt-0">
         {/* HEADER */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
+        <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-4">
           <p className="text-xs text-gray-400 mb-1">Products › {product.name}</p>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-wrap justify-between items-start gap-2">
             <div>
               <h2 className="text-[#00343A] font-semibold text-xl">{product.name}</h2>
               <p className="text-gray-400 text-sm">
@@ -145,29 +156,43 @@ export default async function ProductDetailPage({
                 last run {relativeTime(product.updatedAt)}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <RunNowButton productId={product.id} />
-              <button className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
-                Export
-              </button>
-              <button className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+              <Link
+                href={`/products/${product.id}/edit`}
+                className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Edit
+              </Link>
+              <a
+                href={`/api/products/${product.id}/export`}
+                className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Export .xlsx
+              </a>
+              <a
+                href={`/products/${product.id}/report`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+              >
                 PDF report
-              </button>
+              </a>
               <AddCompetitorModal productId={product.id} />
             </div>
           </div>
         </div>
 
         {/* PRODUCT STATS */}
-        <div className="grid grid-cols-4 gap-0 border-b border-gray-200 bg-[#f9faf8]">
-          <div className="px-8 py-4 border-r border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-gray-200 bg-[#f9faf8]">
+          <div className="px-4 md:px-8 py-4 border-r border-b md:border-b-0 border-gray-200">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
               Our Product
             </p>
             <p className="font-semibold text-[#00343A]">{product.name}</p>
             <p className="text-xs text-gray-400">{product.sku || "No SKU"}</p>
           </div>
-          <div className="px-8 py-4 border-r border-gray-200">
+          <div className="px-4 md:px-8 py-4 md:border-r border-b md:border-b-0 border-gray-200">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
               Cost & Markup
             </p>
@@ -179,7 +204,7 @@ export default async function ProductDetailPage({
               {rec ? ` · now ${rec.markupRatio.toFixed(2)}×` : ""}
             </p>
           </div>
-          <div className="px-8 py-4 border-r border-gray-200">
+          <div className="px-4 md:px-8 py-4 border-r border-gray-200">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
               Position Rule
             </p>
@@ -188,7 +213,7 @@ export default async function ProductDetailPage({
             </p>
             <p className="text-xs text-gray-400">Anchor: {sym}/serving</p>
           </div>
-          <div className="px-8 py-4">
+          <div className="px-4 md:px-8 py-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
               Cycle
             </p>
@@ -203,7 +228,11 @@ export default async function ProductDetailPage({
         <ProductTabs
           productId={product.id}
           sym={sym}
+          productType={product.productType}
+          costPrice={product.costPrice}
+          minMarkup={product.minMarkup}
           servingsPerPack={product.servingsPerPack}
+          gramsPerServing={product.gramsPerServing}
           adjustment={product.adjustment}
           positionRule={product.positionRule}
           competitors={competitorRows}

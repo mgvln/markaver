@@ -11,20 +11,30 @@ export default function RunNowButton({ productId }: { productId: string }) {
     setState("loading")
     setMessage("")
 
-    const res = await fetch(`/api/products/${productId}/scrape`, { method: "POST" })
-    const data = await res.json()
+    try {
+      const res = await fetch(`/api/products/${productId}/scrape`, { method: "POST" })
 
-    if (!res.ok) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setState("error")
+        setMessage((data as { error?: string }).error || "Scrape failed")
+        setTimeout(() => setState("idle"), 4000)
+        return
+      }
+
+      // 202 = scrape started in background (Apify takes 2-3 min)
+      setState("done")
+      setMessage("Running in background — refreshing in 3 min…")
+      setTimeout(() => {
+        router.refresh()
+        setState("idle")
+        setMessage("")
+      }, 3 * 60 * 1000)
+    } catch {
       setState("error")
-      setMessage(data.error || "Scrape failed")
+      setMessage("Network error — please try again")
       setTimeout(() => setState("idle"), 4000)
-      return
     }
-
-    setState("done")
-    setMessage(`Scraped ${data.scraped} competitor${data.scraped !== 1 ? "s" : ""}`)
-    router.refresh()
-    setTimeout(() => setState("idle"), 4000)
   }
 
   return (

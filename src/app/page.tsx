@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Sidebar from "@/components/Sidebar"
+import OnboardingWizard from "./OnboardingWizard"
 
 const CURRENCY_SYMBOL: Record<string, string> = { EUR: "€", GBP: "£", USD: "$" }
 
@@ -29,10 +30,11 @@ export default async function Dashboard() {
 
   return (
     <div className="flex h-screen bg-[#f9faf8]">
+      {products.length === 0 && <OnboardingWizard />}
       <Sidebar active="dashboard" />
 
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
+      <div className="flex-1 overflow-auto pt-14 md:pt-0">
+        <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-4">
           <p className="text-xs text-gray-400 mb-1">Overview</p>
           <div className="flex justify-between items-center">
             <h2 className="text-[#00343A] font-semibold text-xl">Dashboard</h2>
@@ -45,7 +47,7 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {products.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
               <p className="text-gray-600 font-medium mb-2">No products yet</p>
@@ -61,12 +63,13 @@ export default async function Dashboard() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <h3 className="text-sm font-semibold text-[#00343A]">Tracked Products</h3>
                 <span className="text-xs text-gray-400">
                   {products.length} product{products.length !== 1 ? "s" : ""}
                 </span>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-[#f9faf8] border-b border-gray-200">
@@ -149,6 +152,7 @@ export default async function Dashboard() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

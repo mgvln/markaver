@@ -5,6 +5,10 @@ import Sidebar from "@/components/Sidebar"
 import InviteForm from "./InviteForm"
 import RemoveMemberButton from "./RemoveMemberButton"
 import SlackSection from "./SlackSection"
+import GdprSection from "./GdprSection"
+import ApiKeysSection from "./ApiKeysSection"
+import WooCommerceSection from "./WooCommerceSection"
+import ShopifySection from "./ShopifySection"
 
 export default async function SettingsPage({
   searchParams,
@@ -32,13 +36,13 @@ export default async function SettingsPage({
     <div className="flex h-screen bg-[#f9faf8]">
       <Sidebar active="settings" />
 
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
+      <div className="flex-1 overflow-auto pt-14 md:pt-0">
+        <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-4">
           <p className="text-xs text-gray-400 mb-1">Account</p>
           <h2 className="text-[#00343A] font-semibold text-xl">Settings</h2>
         </div>
 
-        <div className="p-8 max-w-3xl flex flex-col gap-6">
+        <div className="p-4 md:p-8 max-w-3xl flex flex-col gap-6">
           {/* Slack OAuth feedback banner */}
           {slack === "connected" && (
             <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-sm text-green-700 font-medium">
@@ -86,7 +90,7 @@ export default async function SettingsPage({
                 return (
                   <div
                     key={ou.id}
-                    className="px-6 py-3 flex items-center justify-between"
+                    className="px-4 md:px-6 py-3 flex items-center justify-between gap-2"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#33A579] flex items-center justify-center text-white text-sm font-bold">
@@ -121,6 +125,18 @@ export default async function SettingsPage({
               </div>
             )}
           </div>
+
+          {/* API Keys */}
+          <ApiKeysSection />
+
+          {/* WooCommerce Import */}
+          <WooCommerceSection />
+
+          {/* Shopify Import */}
+          <ShopifySection />
+
+          {/* GDPR */}
+          <GdprSection isOwner={currentRole === "OWNER"} />
         </div>
       </div>
     </div>

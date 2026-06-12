@@ -9,7 +9,6 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-import { TooltipIcon } from "@/components/TooltipIcon"
 
 export type PricePoint = { date: string; [competitor: string]: number | string }
 export type AmpPoint = { date: string; AMP: number; SRP: number }
@@ -70,11 +69,8 @@ export default function TrendsTab({ priceData, ampData, competitorNames, sym }: 
 
       {/* AMP & SRP trend */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-[#00343A] mb-6 inline-flex items-center">
-          AMP<TooltipIcon text="Average Market Price — the mean price of all tracked competitors for this product" />
-          {" & "}
-          SRP<TooltipIcon text="Suggested Retail Price — your recommended selling price based on the market average and your position rule" />
-          {" Trend"}
+        <h3 className="text-sm font-semibold text-[#00343A] mb-6">
+          AMP &amp; SRP Trend
         </h3>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={ampData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>

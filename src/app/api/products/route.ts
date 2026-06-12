@@ -28,7 +28,8 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const {
-    name, sku, costPrice, minMarkup, servingsPerPack,
+    name, sku, productType, costPrice, minMarkup, servingsPerPack,
+    capsulesPerServing, capsuleSizeGrams, gramsPerServing,
     scrapeInterval, positionRule, adjustment, currency,
   } = body
 
@@ -40,9 +41,13 @@ export async function POST(request: Request) {
     data: {
       name,
       sku: sku || null,
+      productType: productType ?? "capsule",
       costPrice: parseFloat(costPrice),
       minMarkup: parseFloat(minMarkup ?? 4.0),
       servingsPerPack: parseInt(servingsPerPack ?? 30),
+      capsulesPerServing: parseInt(capsulesPerServing ?? 2),
+      capsuleSizeGrams: capsuleSizeGrams != null ? parseFloat(capsuleSizeGrams) : null,
+      gramsPerServing: gramsPerServing != null ? parseFloat(gramsPerServing) : null,
       scrapeInterval: scrapeInterval ?? "weekly",
       positionRule: positionRule ?? "mean",
       adjustment: parseFloat(adjustment ?? 20),

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { sendInviteEmail } from "@/lib/email"
+import crypto from "crypto"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -42,6 +44,29 @@ export async function POST(request: Request) {
     data: { orgId: session.user.orgId, userId: user.id, role },
     include: { user: true },
   })
+
+  console.log(`[invite] user=${user.email} hasPassword=${!!user.password}`)
+  // Send invite email with a set-password link (only for users without a password)
+  if (!user.password) {
+    try {
+      await prisma.passwordResetToken.deleteMany({ where: { email: user.email } })
+      const token = crypto.randomBytes(32).toString("hex")
+      await prisma.passwordResetToken.create({
+        data: { token, email: user.email, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      })
+      const org = await prisma.organization.findUnique({ where: { id: session.user.orgId } })
+      const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+      await sendInviteEmail(
+        user.email,
+        user.name ?? "",
+        org?.name ?? "your team",
+        `${baseUrl}/reset-password/${token}`,
+      )
+      console.log(`[invite] email sent to ${user.email}`)
+    } catch (err) {
+      console.error("[invite] email send failed:", err)
+    }
+  }
 
   return NextResponse.json(orgUser, { status: 201 })
 }

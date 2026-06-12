@@ -51,25 +51,42 @@ interface Props {
   initialTriggers: TriggerRow[]
 }
 
+const BLANK_FORM = { name: "", condition: "amp_drops_by", threshold: "5", action: "email", email: "", webhookUrl: "" }
+
 export default function TriggersTab({ productId, initialTriggers }: Props) {
   const router = useRouter()
   const [triggers, setTriggers] = useState<TriggerRow[]>(initialTriggers)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState("")
 
-  const [form, setForm] = useState({
-    name: "",
-    condition: "amp_drops_by",
-    threshold: "5",
-    action: "email",
-    email: "",
-    webhookUrl: "",
-  })
+  const [form, setForm] = useState(BLANK_FORM)
 
   const update = (key: string) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const openEdit = (t: TriggerRow) => {
+    setForm({
+      name: t.name,
+      condition: t.condition,
+      threshold: t.threshold != null ? String(t.threshold) : "5",
+      action: t.action,
+      email: t.actionConfig.email ?? "",
+      webhookUrl: t.actionConfig.webhookUrl ?? "",
+    })
+    setEditingId(t.id)
+    setShowForm(true)
+    setFormError("")
+  }
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(BLANK_FORM)
+    setFormError("")
+  }
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,28 +100,39 @@ export default function TriggersTab({ productId, initialTriggers }: Props) {
         ? { webhookUrl: form.webhookUrl }
         : {}
 
-    const res = await fetch(`/api/products/${productId}/triggers`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name,
-        condition: form.condition,
-        threshold: NEEDS_THRESHOLD.includes(form.condition) ? form.threshold : null,
-        action: form.action,
-        actionConfig,
-      }),
-    })
+    const payload = {
+      name: form.name,
+      condition: form.condition,
+      threshold: NEEDS_THRESHOLD.includes(form.condition) ? form.threshold : null,
+      action: form.action,
+      actionConfig,
+    }
+
+    const res = editingId
+      ? await fetch(`/api/triggers/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      : await fetch(`/api/products/${productId}/triggers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
 
     const data = await res.json()
     if (!res.ok) {
-      setFormError(data.error || "Failed to create trigger")
+      setFormError(data.error || "Failed to save trigger")
       setSaving(false)
       return
     }
 
-    setTriggers((t) => [data, ...t])
-    setForm({ name: "", condition: "amp_drops_by", threshold: "5", action: "email", email: "", webhookUrl: "" })
-    setShowForm(false)
+    if (editingId) {
+      setTriggers((ts) => ts.map((t) => (t.id === editingId ? { ...t, ...data } : t)))
+    } else {
+      setTriggers((ts) => [data, ...ts])
+    }
+    closeForm()
     setSaving(false)
     router.refresh()
   }
@@ -137,7 +165,7 @@ export default function TriggersTab({ productId, initialTriggers }: Props) {
             <span className="text-gray-400 font-normal">({triggers.length})</span>
           </h3>
           <button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => { closeForm(); setShowForm((v) => !v) }}
             className="bg-[#00343A] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#004f58]"
           >
             + Add Trigger
@@ -147,7 +175,7 @@ export default function TriggersTab({ productId, initialTriggers }: Props) {
         {/* Add form */}
         {showForm && (
           <form onSubmit={handleAdd} className="px-6 py-5 border-b border-gray-100 bg-[#f9faf8]">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">New Trigger</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">{editingId ? "Edit Trigger" : "New Trigger"}</p>
             {formError && (
               <p className="text-xs text-red-600 mb-3">{formError}</p>
             )}
@@ -247,7 +275,7 @@ export default function TriggersTab({ productId, initialTriggers }: Props) {
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={closeForm}
                 className="px-4 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 Cancel
@@ -275,15 +303,21 @@ export default function TriggersTab({ productId, initialTriggers }: Props) {
               <div key={t.id} className="px-6 py-4 flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{t.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 inline-flex items-center flex-wrap gap-x-0.5">
-                    {conditionLabel(t.condition)}
-                    {t.threshold != null && ` · ${t.threshold}${t.condition === "markup_below" ? "×" : "%"}`}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {CONDITION_LABELS[t.condition] ?? t.condition}
+                    {t.threshold != null && NEEDS_THRESHOLD.includes(t.condition) && ` · ${t.threshold}${t.condition === "markup_below" ? "×" : "%"}`}
                     {" · "}
                     <span className="capitalize">{t.action}</span>
                     {" · "}Last fired: {relativeTime(t.lastFiredAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => openEdit(t)}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Edit
+                  </button>
                   {/* Active toggle */}
                   <button
                     onClick={() => toggleActive(t)}
