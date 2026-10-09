@@ -15,6 +15,37 @@ function stddev(values: number[]): number {
   return Math.sqrt(values.reduce((a, b) => a + (b - m) ** 2, 0) / values.length)
 }
 
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid]
+}
+
+// A single cycle can contain too few prices for the ±2σ test to mean anything
+// (one result => stddev 0 => nothing is ever an outlier). Compare each price to
+// that competitor's own recent history instead, so a scrape that returns a
+// fragment like 0.35 for a 28.00 product is flagged rather than trusted.
+const SANITY_LOW = 0.25
+const SANITY_HIGH = 4
+const MIN_SAMPLES_FOR_RECOMMENDATION = 2
+
+function failsHistoricalSanity(price: number, history: number[]): boolean {
+  if (history.length === 0) return false
+  const base = median(history)
+  if (base <= 0) return false
+  return price < base * SANITY_LOW || price > base * SANITY_HIGH
+}
+
+// The historical check cannot help when a selector has been returning the same
+// wrong value every cycle — the bad price becomes its own history. A competitor
+// retailing far below our unit cost is not a real market price, it is a bad parse.
+const IMPLAUSIBLE_VS_COST = 0.35
+
+function failsCostPlausibility(price: number, costPrice: number): boolean {
+  if (!costPrice || costPrice <= 0) return false
+  return price < costPrice * IMPLAUSIBLE_VS_COST
+}
+
 export async function scrapeProduct(productId: string): Promise<{
   scraped: number
   failed: number
@@ -103,12 +134,44 @@ export async function scrapeProduct(productId: string): Promise<{
 
   const competitorMap = new Map(product.competitors.map((c) => [c.id, c]))
 
+  // Recent price history per competitor, for the sanity check below.
+  const historyByCompetitor = new Map<string, number[]>()
+  await Promise.all(
+    results.map(async (r) => {
+      const prev = await prisma.priceSnapshot.findMany({
+        where: { competitorId: r.competitorId, isOutlier: false },
+        orderBy: { scrapedAt: "desc" },
+        take: 5,
+        select: { price: true },
+      })
+      historyByCompetitor.set(r.competitorId, prev.map((p) => p.price))
+    })
+  )
+
   const snapshotData = results.map((r) => {
     const competitor = competitorMap.get(r.competitorId)
     const servings = competitor?.servings ?? product.servingsPerPack
     const isPowder = product.productType === "powder"
     const gramsPerServing = product.gramsPerServing ?? 10
     const packKg = isPowder ? (servings * gramsPerServing) / 1000 : null
+
+    const history = historyByCompetitor.get(r.competitorId) ?? []
+    const label = competitor?.name ?? r.competitorId
+    const breaksHistory = failsHistoricalSanity(r.price, history)
+    const breaksCost = failsCostPlausibility(r.price, product.costPrice)
+    const insane = breaksHistory || breaksCost
+    if (breaksHistory) {
+      console.warn(
+        `[scraper] Price ${r.price} for ${label} is far outside its recent range ` +
+        `(median ${median(history)}) — storing as outlier, excluded from pricing.`
+      )
+    }
+    if (breaksCost) {
+      console.warn(
+        `[scraper] Price ${r.price} for ${label} is far below our unit cost ` +
+        `(${product.costPrice}) — almost certainly a bad parse. Storing as outlier.`
+      )
+    }
 
     return {
       price: r.price,
@@ -117,7 +180,7 @@ export async function scrapeProduct(productId: string): Promise<{
       pricePer30Days: parseFloat((r.price * (30 / servings)).toFixed(2)),
       pricePerKg: packKg ? parseFloat((r.price / packKg).toFixed(2)) : null,
       inStock: r.inStock,
-      isOutlier: detectOutlier(r.price, priceMean, priceStddev),
+      isOutlier: insane || detectOutlier(r.price, priceMean, priceStddev),
       scrapedAt: runAt,
       productId: product.id,
       competitorId: r.competitorId,
@@ -141,8 +204,16 @@ export async function scrapeProduct(productId: string): Promise<{
     gramsPerServing: product.gramsPerServing,
   })
 
+  const usableCount = snapshotData.filter((s) => s.inStock && !s.isOutlier).length
+
   let recommendation = null
-  if (pricing) {
+  if (pricing && usableCount < MIN_SAMPLES_FOR_RECOMMENDATION) {
+    // Keep the previous recommendation rather than overwriting it from a single
+    // data point — one bad scrape should not redefine the market average.
+    console.warn(
+      `[scraper] Only ${usableCount} usable price(s) this cycle — keeping previous recommendation.`
+    )
+  } else if (pricing) {
     recommendation = await prisma.pricingRecommendation.create({
       data: { ...pricing, productId: product.id },
     })
