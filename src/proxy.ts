@@ -9,9 +9,12 @@ export default auth((req) => {
                      req.nextUrl.pathname.startsWith("/reset-password")
   const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth")
 
-  // Allow auth API routes and internal scrape trigger always
+  // Allow auth API routes, internal scrape trigger, public v1 API, and the
+  // public legal pages (cookie policy, sub-processors) always
   const isInternal = req.nextUrl.pathname.startsWith("/api/internal/")
-  if (isApiAuth || isInternal) return NextResponse.next()
+  const isPublicApi = req.nextUrl.pathname.startsWith("/api/v1/")
+  const isLegal = req.nextUrl.pathname.startsWith("/legal")
+  if (isApiAuth || isInternal || isPublicApi || isLegal) return NextResponse.next()
 
   // Redirect logged in users away from login/signup
   if (isLoggedIn && isAuthPage) {
