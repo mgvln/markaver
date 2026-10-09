@@ -17,13 +17,47 @@ function relativeTime(date: Date): string {
 
 export default async function Dashboard() {
   const session = await auth()
-  if (!session?.user?.orgId) redirect("/login")
+
+  if (!session?.user?.orgId) {
+    return (
+      <div className="min-h-screen bg-[#f9faf8] flex items-center justify-center p-8">
+        <div className="max-w-md w-full text-center">
+          <div className="w-14 h-14 rounded-full bg-[#00343A] flex items-center justify-center mx-auto mb-5">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="white"/>
+            </svg>
+          </div>
+          <h2 className="text-[#00343A] text-2xl font-bold mb-2">You&apos;re signed in</h2>
+          <p className="text-gray-500 text-sm mb-8">
+            You&apos;re not part of any organisation yet. Ask your admin to invite you, or create your own.
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href="/setup"
+              className="w-full bg-[#00343A] text-white py-3 rounded-lg font-medium hover:bg-[#004f58] transition-colors text-sm"
+            >
+              Create an organisation
+            </a>
+            <a
+              href="/api/auth/signout"
+              className="w-full border border-gray-200 text-gray-600 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
+            >
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const products = await prisma.product.findMany({
     where: { orgId: session.user.orgId },
     include: {
       _count: { select: { competitors: true } },
       recommendations: { orderBy: { createdAt: "desc" }, take: 1 },
+      competitors: {
+        include: { snapshots: { orderBy: { scrapedAt: "desc" }, take: 1 } },
+      },
     },
     orderBy: { createdAt: "desc" },
   })
@@ -104,6 +138,10 @@ export default async function Dashboard() {
                     const sym = CURRENCY_SYMBOL[p.currency] ?? "€"
                     const rec = p.recommendations[0] ?? null
                     const hasCompetitors = p._count.competitors > 0
+                    const lastRun = p.competitors
+                      .flatMap((c) => c.snapshots)
+                      .map((s) => s.scrapedAt)
+                      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
 
                     return (
                       <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
@@ -134,7 +172,7 @@ export default async function Dashboard() {
                             : `${p.minMarkup.toFixed(1)}× (min)`}
                         </td>
                         <td className="px-4 py-4 text-xs text-gray-400">
-                          {relativeTime(p.updatedAt)}
+                          {lastRun ? relativeTime(lastRun) : "never"}
                         </td>
                         <td className="px-4 py-4">
                           <span

@@ -16,7 +16,7 @@ export default async function SettingsPage({
   searchParams: Promise<{ slack?: string }>
 }) {
   const session = await auth()
-  if (!session?.user?.orgId) redirect("/login")
+  if (!session?.user?.orgId) redirect("/setup")
 
   const { slack } = await searchParams
 

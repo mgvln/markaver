@@ -17,7 +17,7 @@ function relativeTime(date: Date): string {
 
 export default async function ProductsPage() {
   const session = await auth()
-  if (!session?.user?.orgId) redirect("/login")
+  if (!session?.user?.orgId) redirect("/setup")
 
   const products = await prisma.product.findMany({
     where: { orgId: session.user.orgId },

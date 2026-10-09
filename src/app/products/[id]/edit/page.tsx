@@ -11,7 +11,7 @@ export default async function EditProductPage({
 }) {
   const { id } = await params
   const session = await auth()
-  if (!session?.user?.orgId) redirect("/login")
+  if (!session?.user?.orgId) redirect("/setup")
 
   const product = await prisma.product.findFirst({
     where: { id, orgId: session.user.orgId },

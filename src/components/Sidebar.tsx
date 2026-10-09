@@ -9,9 +9,6 @@ export type ActivePage = "dashboard" | "products" | "markets" | "reports" | "tri
 const navLinks = [
   { href: "/", label: "Dashboard", id: "dashboard" },
   { href: "/products", label: "Products", id: "products" },
-  { href: "#", label: "Markets", id: "markets" },
-  { href: "#", label: "Reports", id: "reports" },
-  { href: "#", label: "Triggers", id: "triggers" },
   { href: "/settings", label: "Settings", id: "settings" },
 ] as const
 

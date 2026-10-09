@@ -27,7 +27,7 @@ export default async function ProductDetailPage({
 }) {
   const { id } = await params
   const session = await auth()
-  if (!session?.user?.orgId) redirect("/login")
+  if (!session?.user?.orgId) redirect("/setup")
 
   const product = await prisma.product.findFirst({
     where: { id, orgId: session.user.orgId },
@@ -65,6 +65,11 @@ export default async function ProductDetailPage({
 
   const sym = CURRENCY_SYMBOL[product.currency] ?? "€"
   const rec = product.recommendations[0] ?? null
+
+  const lastRun = product.competitors
+    .flatMap((c) => c.snapshots)
+    .map((s) => s.scrapedAt)
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
 
   // Build CompetitorRow[]
   const competitorRows: CompetitorRow[] = product.competitors.map((c) => {
@@ -153,7 +158,7 @@ export default async function ProductDetailPage({
               <p className="text-gray-400 text-sm">
                 {product.sku && `${product.sku} · `}
                 {product.servingsPerPack} servings · cycle {product.scrapeInterval} ·{" "}
-                last run {relativeTime(product.updatedAt)}
+                last run {lastRun ? relativeTime(lastRun) : "never"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -171,7 +176,7 @@ export default async function ProductDetailPage({
                 Export .xlsx
               </a>
               <a
-                href={`/products/${product.id}/report`}
+                href={`/api/products/${product.id}/report`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
